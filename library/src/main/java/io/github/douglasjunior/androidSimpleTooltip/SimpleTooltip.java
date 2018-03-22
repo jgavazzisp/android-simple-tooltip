@@ -183,8 +183,20 @@ public class SimpleTooltip implements PopupWindow.OnDismissListener {
                 } else if ((event.getAction() == MotionEvent.ACTION_DOWN) && mDismissOnInsideTouch) {
                     dismiss();
                     return true;
+                } else if (mModal && mDismissOnOutsideTouch) {
+                    // post the event in order to avoid views
+                    // underneath receiving the events after
+                    // popup is closed
+                    mRootView.post(new Runnable() {
+                        @Override
+                        public void run() {
+                            dismiss();
+                        }
+                    });
+                    return true;
                 }
-                return false;
+
+                return mModal;
             }
         });
         mPopupWindow.setClippingEnabled(false);
@@ -633,12 +645,12 @@ public class SimpleTooltip implements PopupWindow.OnDismissListener {
             }
         }
 
-        public Builder setWidth(int width){
+        public Builder setWidth(int width) {
             this.width = width;
             return this;
         }
 
-        public Builder setHeight(int height){
+        public Builder setHeight(int height) {
             this.height = height;
             return this;
         }

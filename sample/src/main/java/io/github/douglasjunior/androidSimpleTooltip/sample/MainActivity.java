@@ -31,7 +31,6 @@ import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.Toolbar;
 import android.view.Gravity;
 import android.view.View;
-import android.view.WindowManager;
 import android.widget.Button;
 import android.widget.EditText;
 
@@ -116,6 +115,8 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                     .text(R.string.btn_overlay)
                     .gravity(Gravity.START)
                     .animated(true)
+                    .modal(true)
+                    .dismissOnOutsideTouch(true)
                     .transparentOverlay(false)
                     .build()
                     .show();
