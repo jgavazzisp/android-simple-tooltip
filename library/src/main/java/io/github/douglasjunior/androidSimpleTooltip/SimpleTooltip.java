@@ -28,6 +28,7 @@ import android.animation.Animator;
 import android.animation.AnimatorListenerAdapter;
 import android.animation.AnimatorSet;
 import android.animation.ObjectAnimator;
+import android.animation.TimeInterpolator;
 import android.annotation.TargetApi;
 import android.content.Context;
 import android.graphics.Color;
@@ -42,6 +43,7 @@ import android.support.annotation.Dimension;
 import android.support.annotation.DrawableRes;
 import android.support.annotation.IdRes;
 import android.support.annotation.LayoutRes;
+import android.support.annotation.RequiresApi;
 import android.support.annotation.StringRes;
 import android.util.Log;
 import android.view.Gravity;
@@ -51,6 +53,8 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.view.ViewTreeObserver;
 import android.view.animation.AccelerateDecelerateInterpolator;
+import android.view.animation.AccelerateInterpolator;
+import android.view.animation.LinearInterpolator;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.PopupWindow;
@@ -116,6 +120,7 @@ public class SimpleTooltip implements PopupWindow.OnDismissListener {
     private final float mArrowWidth;
     private final float mArrowHeight;
     private final boolean mFocusable;
+    private final boolean animateOverlay;
     private boolean dismissed = false;
     private int mHighlightShape = OverlayView.HIGHLIGHT_SHAPE_OVAL;
     private int width = ViewGroup.LayoutParams.WRAP_CONTENT;
@@ -136,6 +141,7 @@ public class SimpleTooltip implements PopupWindow.OnDismissListener {
         mTransparentOverlay = builder.transparentOverlay;
         mOverlayOffset = builder.overlayOffset;
         mOverlayMatchParent = builder.overlayMatchParent;
+        animateOverlay = builder.animateOverlay;
         mMaxWidth = builder.maxWidth;
         mShowArrow = builder.showArrow;
         mArrowWidth = builder.arrowWidth;
@@ -183,22 +189,16 @@ public class SimpleTooltip implements PopupWindow.OnDismissListener {
                 } else if ((event.getAction() == MotionEvent.ACTION_DOWN) && mDismissOnInsideTouch) {
                     dismiss();
                     return true;
-                } else if (mModal && mDismissOnOutsideTouch) {
-                    // post the event in order to avoid views
-                    // underneath receiving the events after
-                    // popup is closed
-                    mRootView.post(new Runnable() {
-                        @Override
-                        public void run() {
-                            dismiss();
-                        }
-                    });
+                } else if (mDismissOnOutsideTouch && event.getAction() == MotionEvent.ACTION_OUTSIDE) {
+                    mRootView.requestDisallowInterceptTouchEvent(true);
+                    dismiss();
                     return true;
                 }
 
-                return mModal;
+                return false;
             }
         });
+
         mPopupWindow.setClippingEnabled(false);
         mPopupWindow.setFocusable(mFocusable);
     }
@@ -234,6 +234,20 @@ public class SimpleTooltip implements PopupWindow.OnDismissListener {
         else
             mOverlay.setLayoutParams(new ViewGroup.LayoutParams(mRootView.getWidth(), mRootView.getHeight()));
         mOverlay.setOnTouchListener(mOverlayTouchListener);
+
+
+        if (animateOverlay && Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB_MR1) {
+            mOverlay.setAlpha(0);
+            int animationTime = mOverlay
+                    .getResources()
+                    .getInteger(android.R.integer.config_shortAnimTime);
+
+            mOverlay.animate()
+                    .alpha(1)
+                    .setDuration(animationTime)
+                    .setInterpolator(new AccelerateInterpolator());
+        }
+
         mRootView.addView(mOverlay);
     }
 
@@ -314,7 +328,6 @@ public class SimpleTooltip implements PopupWindow.OnDismissListener {
             linearLayout.addView(mContentView);
         }
 
-//        LinearLayout.LayoutParams contentViewParams = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, 0);
         LinearLayout.LayoutParams contentViewParams = new LinearLayout.LayoutParams(width, height, 0);
         contentViewParams.gravity = Gravity.CENTER;
         mContentView.setLayoutParams(contentViewParams);
@@ -325,12 +338,33 @@ public class SimpleTooltip implements PopupWindow.OnDismissListener {
     }
 
     public void dismiss() {
-        if (dismissed)
+        if (dismissed) {
             return;
+        }
 
-        dismissed = true;
-        if (mPopupWindow != null) {
-            mPopupWindow.dismiss();
+        if (animateOverlay && Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB_MR1) {
+            int animationTime = mOverlay
+                    .getResources()
+                    .getInteger(android.R.integer.config_shortAnimTime);
+
+            mOverlay.animate()
+                    .alpha(0)
+                    .setDuration(animationTime)
+                    .setInterpolator(new AccelerateInterpolator())
+                    .setListener(new AnimatorListenerAdapter() {
+                        @Override
+                        public void onAnimationEnd(Animator animation) {
+                            dismissed = true;
+                            if (mPopupWindow != null) {
+                                mPopupWindow.dismiss();
+                            }
+                        }
+                    });
+        } else {
+            dismissed = true;
+            if (mPopupWindow != null) {
+                mPopupWindow.dismiss();
+            }
         }
     }
 
@@ -560,6 +594,7 @@ public class SimpleTooltip implements PopupWindow.OnDismissListener {
         private boolean transparentOverlay = true;
         private float overlayOffset = -1;
         private boolean overlayMatchParent = true;
+        private boolean animateOverlay = false;
         private float maxWidth;
         private boolean showArrow = true;
         private Drawable arrowDrawable;
@@ -1076,6 +1111,12 @@ public class SimpleTooltip implements PopupWindow.OnDismissListener {
          */
         public Builder overlayOffset(@Dimension float overlayOffset) {
             this.overlayOffset = overlayOffset;
+            return this;
+        }
+
+        @RequiresApi(value = Build.VERSION_CODES.HONEYCOMB_MR1)
+        public Builder animateOverlay(boolean animate) {
+            this.animateOverlay = animate;
             return this;
         }
 

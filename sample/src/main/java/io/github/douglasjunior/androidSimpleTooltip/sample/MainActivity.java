@@ -116,6 +116,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                     .gravity(Gravity.START)
                     .animated(true)
                     .modal(true)
+                    .animateOverlay(true)
                     .dismissOnOutsideTouch(true)
                     .transparentOverlay(false)
                     .build()
